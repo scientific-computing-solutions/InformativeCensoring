@@ -2,7 +2,7 @@ Package: InformativeCensoring
 Type: Package
 Title: Multiple Imputation for Informative Censoring
 Version: 0.3.3
-Author: c(
+Authors@R: c(
   person("David", "Ruau", 
          email='david.ruau@astrazeneca.com',
          role=c("aut")),
@@ -10,7 +10,7 @@ Author: c(
          role=c("aut")),
   person("Jonathan", "Bartlett", 
          email='jonathan.bartlett@astrazeneca.com',
-         role=c("aut")),
+         role=c("aut","cre")),
   person("Dan", "Jackson", 
          email='dan.jackson@mrc-bsu.cam.ac.uk',
          role=c("aut")),
@@ -24,8 +24,9 @@ Author: c(
          email='paul.metcalfe@astrazeneca.com',
          role=c("aut"))
   )
-Maintainer: Jonathan Bartlett <Jonathan.Bartlett@astrazeneca.com>
-Description: Multiple Imputation for Informative Censoring
+Description: Multiple Imputation for Informative Censoring. This package implements
+two methods. Gamma Imputation from Jackson et al. (2014) and Risk Score Imputation
+from Hsu et al. (2009).
 License: GPL (>= 2)
 LazyLoad: yes
 Depends:
@@ -34,11 +35,10 @@ Depends:
 Imports:
     survival,
     boot,
-    dplyr (>= 0.4.3)
+    dplyr (>= 0.4.3),
+    parallel
 Suggests:
     knitr,
-    testthat,
-    parallel
+    testthat
 VignetteBuilder: knitr
 URL: https://github.com/scientific-computing-solutions/InformativeCensoring
-RoxygenNote: 5.0.1
