@@ -24,9 +24,10 @@ Authors@R: c(
          email='paul.metcalfe@astrazeneca.com',
          role=c("aut"))
   )
-Description: Multiple Imputation for Informative Censoring. This package implements
-two methods. Gamma Imputation from Jackson et al. (2014) and Risk Score Imputation
-from Hsu et al. (2009).
+Description: Multiple Imputation for Informative Censoring. 
+    This package implements two methods. Gamma Imputation 
+    from Jackson et al. (2014) and Risk Score Imputation 
+    from Hsu et al. (2009).
 License: GPL (>= 2)
 LazyLoad: yes
 Depends:
