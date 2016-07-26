@@ -1,9 +1,10 @@
 language: r
-cache: packages
-sudo: false
 
 before_install:
-  - tlmgr install index
+  - tlmgr install fullpage url color authblk amsmath amssymb
+
+cache: packages
+sudo: false
 
 os:
   - linux
