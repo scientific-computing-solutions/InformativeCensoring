@@ -2,20 +2,43 @@ Package: InformativeCensoring
 Type: Package
 Title: Multiple Imputation for Informative Censoring
 Version: 0.3.3
-Author: c(person("David", "Ruau", role=c("cre")),
-    c(person("Nikolas", "Burkoff", role=c("aut")),
-Maintainer: David Ruau <David.Ruau@astrazeneca.com>
+Author: c(
+  person("David", "Ruau", 
+         email='david.ruau@astrazeneca.com',
+         role=c("aut")),
+  person("Nikolas", "Burkoff", 
+         role=c("aut")),
+  person("Jonathan", "Bartlett", 
+         email='jonathan.bartlett@astrazeneca.com',
+         role=c("aut")),
+  person("Dan", "Jackson", 
+         email='dan.jackson@mrc-bsu.cam.ac.uk',
+         role=c("aut")),
+  person("Edmund", "Jones", 
+         email='epaj2@medschl.cam.ac.uk',
+         role=c("aut")),
+  person("Martin", "Law", 
+         email='martin.law@mrc-bsu.cam.ac.uk',
+         role=c("aut")),
+  person("Paul", "Metcalfe", 
+         email='paul.metcalfe@astrazeneca.com',
+         role=c("aut"))
+  )
+Maintainer: Jonathan Bartlett <Jonathan.Bartlett@astrazeneca.com>
 Description: Multiple Imputation for Informative Censoring
 License: GPL (>= 2)
 LazyLoad: yes
-Suggests:
-    knitr,
-    testthat,
-    parallel
 Depends:
     R (>= 3.1.2),
     survival (>= 2.36-1)
 Imports:
+    survival,
     boot,
     dplyr (>= 0.4.3)
+Suggests:
+    knitr,
+    testthat,
+    parallel
 VignetteBuilder: knitr
+URL: https://github.com/scientific-computing-solutions/InformativeCensoring
+RoxygenNote: 5.0.1

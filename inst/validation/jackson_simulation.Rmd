@@ -1,0 +1,96 @@
+---
+title: "Gamma imputation - simulation study"
+author: "Jonathan Bartlett"
+date: "4/25/2016"
+output: pdf_document
+---
+
+```{r}
+#replication of simulation study performed by Jackson et al DOI: 10.1002/sim.6274
+#we perform 100 simulations per value of gamma, whereas Jackson et al used 1000
+
+#load informative censoring package
+library(InformativeCensoring)
+
+runSim <- function(nSim=100,n=100,gamma=0) {
+
+  ICEst <- array(0, dim=c(nSim,2))
+  ICCI <- array(0, dim=c(nSim,4))
+  miEst <- array(0, dim=c(nSim,2))
+  miCI <- array(0, dim=c(nSim,4))
+  trueEst <- array(0, dim=c(nSim,2))
+  for (sim in 1:nSim) {
+    u <- runif(n)
+    z <- rep(0, n)
+    z[(u>0.5) & (u<0.8)] <- 1
+    z[u>0.8] <- 2
+    
+    #generate censoring time
+    c <- rexp(n, rate=0.3)
+    lambda <- 0.03+0.02*(z==1)+0.06*(z==2)
+    t <- rexp(n, rate=lambda)
+    
+    y <- t
+    y[c<t] <- c[c<t]
+    y[y>3] <- 3
+    
+    delta <- 1*(y==t)
+    
+    #note that thus far T and C are independent
+    ICmod <- coxph(Surv(y,delta)~factor(z))
+    ICEst[sim,] <- coef(ICmod)
+    ICCI[sim,1:2] <- log(summary(ICmod)$conf.int[1,3:4])
+    ICCI[sim,3:4] <- log(summary(ICmod)$conf.int[2,3:4])
+    
+    #now we apply the gamma imputation approach
+    data <- data.frame(y,delta,z=factor(z))
+    imputed <- gammaImpute(formula=Surv(y,delta)~z, data=data, m=10, gamma=rep(gamma,n), DCO.time = 3)
+    fits <- ImputeStat(imputed)
+    s <- summary(fits)
+    miEst[sim,] <- s[,1]
+    miCI[sim,1:2] <- s[1,6:7]
+    miCI[sim,3:4] <- s[2,6:7]
+    
+    #now we simulate what would have been observed in the absence of censoring
+    tstar <- t
+    a <- rexp(n, rate=lambda*exp(gamma))
+    tstar[t>c] <- c[t>c]+a[t>c]
+    #in their paper, Jackson et al again censor tstar at 3
+    delta <- 1*(tstar<3)
+    tstar[delta==0] <- 3
+    
+    truemod <- coxph(Surv(tstar,delta)~factor(z))
+    trueEst[sim,] <- coef(truemod)
+    #in the way Jackson et al have done it, these now become the 'true' log hazard ratios
+  }
+  
+  list(ICEst=ICEst, ICCI=ICCI, miEst=miEst, miCI=miCI, trueEst=trueEst)
+}
+
+gammaseq <- seq(-2,5,1)
+resultsTable <- array(0, dim=c(length(gammaseq), 9))
+resultsTable[,1] <- gammaseq
+
+for (i in 1:length(gammaseq)) {
+  gammaval <- gammaseq[i]
+  print(paste("Gamma = ", gammaval, sep=""))
+  results <- runSim(nSim=100,n=1000,gammaval)
+  #calculate bias, as defined in Jackson paper
+  truth <- colMeans(results$trueEst)
+  
+  ICbias <- colMeans(results$ICEst)-colMeans(results$trueEst)
+  MIbias <- colMeans(results$miEst)-colMeans(results$trueEst)
+  
+  ICCI1 <- ((results$ICCI[,1]<truth[1]) & (results$ICCI[,2]>truth[1]))
+  ICCI2 <- ((results$ICCI[,3]<truth[2]) & (results$ICCI[,4]>truth[2]))
+  miCI1 <- ((results$miCI[,1]<truth[1]) & (results$miCI[,2]>truth[1]))
+  miCI2 <- ((results$miCI[,3]<truth[2]) & (results$miCI[,4]>truth[2]))
+  
+  #save to results table, mirroring formatting in Jackson paper
+  resultsTable[i,2:9] <- c(MIbias[1], ICbias[1], mean(miCI1), mean(ICCI1), MIbias[2], ICbias[2], mean(miCI2), mean(ICCI2))
+}
+
+colnames(resultsTable) <- c("Gamma", "MI bias 1", "IC bias 1", "MI CI 1", "IC CI 1",  "MI bias 2", "IC bias 2", "MI CI 2", "IC CI 2")
+
+format(round(resultsTable, 2), nsmall=2)
+```
