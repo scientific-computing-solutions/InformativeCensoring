@@ -1,7 +1,7 @@
 language: r
 
 before_install:
-  - tlmgr install fullpage url color authblk amsmath amssymb
+  - tlmgr install preprint la­tex-graph­ics amsmath
 
 cache: packages
 sudo: false
