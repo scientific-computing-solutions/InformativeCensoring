@@ -11,9 +11,6 @@
 #@return list of answers
 #See boot::boot and parallel package vignette for further details
 parallelRun <- function(parallel,ncpus,cl,lapply.list,FUN,...){
-  if(!require("parallel")){
-    stop("parallel package is not available")
-  }
   
   #code from boot package
   have_mc <- have_snow <- FALSE
@@ -49,7 +46,7 @@ parallelRun <- function(parallel,ncpus,cl,lapply.list,FUN,...){
       #This cluster call is needed as snow doesn't seem
       #to pass libraries which a package depends on onto
       #the cluster
-      clusterCall(cl, function() library("survival"))
+      parallel::clusterCall(cl, function() library("survival"))
       res <- parallel::parLapply(cl, lapply.list, FUN, ...)
       parallel::stopCluster(cl)
       res
