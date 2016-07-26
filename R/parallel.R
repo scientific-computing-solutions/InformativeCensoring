@@ -10,8 +10,9 @@
 #@param ... Additional arguments to be passed to FUN
 #@return list of answers
 #See boot::boot and parallel package vignette for further details
+
 parallelRun <- function(parallel,ncpus,cl,lapply.list,FUN,...){
-  
+
   #code from boot package
   have_mc <- have_snow <- FALSE
   if (parallel == "multicore") 
