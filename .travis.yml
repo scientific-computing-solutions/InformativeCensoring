@@ -1,14 +1,14 @@
 language: r
-
-before_install:
-  - tlmgr install preprint la­tex-graph­ics amsmath
-
 cache: packages
 sudo: false
 
 os:
   - linux
   - osx
+
+matrix:
+  allow_failures:
+    - os: osx
 
 r_github_packages:
   - jimhester/covr
