@@ -28,13 +28,12 @@ Description: Multiple Imputation for Informative Censoring.
     This package implements two methods. Gamma Imputation 
     from Jackson et al. (2014) and Risk Score Imputation 
     from Hsu et al. (2009).
-License: GPL (>= 2)
+License: GPL (>= 2) | file LICENSE
 LazyLoad: yes
 Depends:
     R (>= 3.1.2),
     survival (>= 2.36-1)
 Imports:
-    survival,
     boot,
     dplyr (>= 0.4.3),
     parallel

@@ -1,4 +1,3 @@
-#' @importFrom Rcpp sourceCpp
 #' @useDynLib InformativeCensoring
 #' @importFrom survival Surv
 #' @import parallel
