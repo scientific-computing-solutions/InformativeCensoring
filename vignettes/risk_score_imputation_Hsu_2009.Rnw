@@ -1,0 +1,305 @@
+\documentclass{article}
+
+\usepackage{fullpage}
+\usepackage{url}
+\usepackage{color}
+\usepackage{authblk}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+%\VignetteEngine{knitr::knitr}
+%\VignetteIndexEntry{Risk Score Imputation tutorial (Hsu 2009)}
+
+\begin{document}
+%\SweaveOpts{concordance=TRUE}
+
+\title{Risk Score Imputation tutorial (Hsu 2009)}
+\author[**]{Nikolas S. Burkoff}
+\author[*]{Paul Metcalfe}
+\author[*]{Jonathan Bartlett}
+\author[*]{David Ruau}
+
+\affil[*]{AstraZeneca, B\&I, Advanced Analytics Centre, UK}
+\affil[**]{Tessella, 26 The Quadrant, Abingdon Science Park, Abingdon, OX14 3YS, UK}
+
+
+\renewcommand\Authands{ and }
+
+\maketitle
+
+\section{Introduction}
+
+In this vignette we use the \texttt{InformativeCensoring} R library to perform the multiple imputation (MI) method of Chiu-Hsieh Hsu and Jeremy Taylor \cite{Hsu:2009}, which in this package is called `risk-score imputation'. The purpose of the imputation method is two fold. First, to attempt to remove bias in standard analyses when it is thought that censoring may be informative. Second, to improve efficiency by imputing events times for individuals who were censored. The first part of this vignette describes the method and the second part shows the package in use.
+
+\section{Theory}
+In this section we describe the risk score imputation method and we refer readers to \cite{Hsu:2009} for further details. Consider a two arm time to event data set where subject $i$ has event time $T_i$ and potential censoring time $C_i$. For each subject we observe a time $X_i=\min(T_i,C_i)$ and event indicator $\Delta_i$ which $=1$ if the subject was observed to have had an event at $X_i$ and $=0$ otherwise. The independent censoring assumption states that $T_i$ and $C_i$ are independent, and when this assumption is violated, standard methods for inference are in general invalidated.
+
+The risk score imputation approach creates multiple imputations of event times for those subjects whose event times were censored. The imputation procedure utilizes subject level covariates, which may be time-varying, and relaxes the assumption of independent censoring to an assumption that the event time and censoring time are conditionally independent given the covariates. This means that covariates which are known or believed to be related both to the hazard of failure and the hazard of censoring should be included in the imputation process. Including covariates which are only related to the hazard of failure is also recommended, as this is expected to increase the efficiency of the resulting inferences.
+
+The method works by generating $m$ imputed event times $Y^m_i \ge X_i$ and event indicators $\Delta^m_i$. The data $\{ Y^m_i, \Delta^m_i \}$ is imputed by creating a risk set of \textit{similar} subjects to subject $i$ and then using a procedure called Kaplan-Meier imputation (KMI). The creation of risk sets and the KMI procedure are described below.
+
+Once the $M$ data sets have been imputed, standard time to event statistical analyses (for example the log rank test) can be applied to each data set and the results combined (as described below) to produce point estimates of model parameters or to perform a hypothesis test (e.g. of equality of survivor functions).
+
+\subsection{Calculation of Risk Set}
+
+For each censored subject $i$ we first calculate a risk set $R(i^+,NN)$ which contains the \textit{nearest} $NN$ subjects to subject $i$ (in the same treatment group) with event/censoring time $>X_i$, where $NN$ is a user specified number. When calculating risk sets the separate treatment groups are considered independently. If only $n \le NN$ subjects in the same arm have event/censoring time $>X_i$ then all $n$ subjects are part of the risk set and if $n=0$ no imputation can be made and $Y^m_i=X_i$ and $\Delta^m_i = \Delta_i$.
+
+In order to find the \textit{nearest} subjects to subject $i$ we use proportional hazards models to reduce the auxiliary variables of subjects into a pair of risk scores. In the case of only time independent covariates, for each treatment group independently, we fit a pair of Cox proportional hazard models, one for event times $\lambda_f(t)\exp(\beta_f \mathbf{\bar{V}}_f)$ (where $\mathbf{\bar{V}}_f$ is the vector of auxiliary variables used in the Cox model) and one for censored times $\lambda_c(t)\exp(\beta_c \mathbf{\bar{V}}_c)$.
+
+The risk scores for each subject are linear combinations of the auxiliary variables, specifically $\hat{RS_f}=\hat{\beta_f}\mathbf{\bar{V}_f}$ and $\hat{RS_c}=\hat{\beta_c}\mathbf{\bar{V}_c}$. These risk scores are centred and scaled by subtracting the mean and dividing by their standard deviation to give normalized scores ($\hat{RS^*_f}$ and $\hat{RS^*_c}$). If either model cannot be fitted as all subjects considered have an event (or all are censored) then $\hat{RS^*_f}$ (or $\hat{RS^*_c}$) are set to zero for all subjects.
+
+The distance between subjects $j$ and $k$ is then given by $$ d(j,k) =  \sqrt{w_f(\hat{RS^*_f}(j)-\hat{RS^*_f}(k))^2 + w_c(\hat{RS^*_c}(j)-\hat{RS^*_c}(k))^2}$$ where $w_c$ is a user specified weighting between 0 and 1 and $w_f = 1 - w_c$.
+
+The $NN$ subjects with smallest $d(i,.)$ with event/censoring time $>X_i$ form the risk set for subject $i$\footnote{If there are ties, so that two subjects are exactly the same distance from subject $i$ and including them both would increase the size of the risk set to $>NN$ then both are included.}.
+
+For data sets with time dependent covariates, following \cite{Hsu:2009}, `for every censored observation these two time-independent proportional hazard models are fitted to the data of those at risk at the censoring time using the currently available auxiliary variables as fixed covariates'. I include subjects who leave the study at time $>$ the censored observation and normalize only these scores. There can be problems with convergence when trying to fit a Cox model to a small number of subjects, therefore a `minimum subjects' option is included and the simplified example below describes its function:
+
+Suppose the times of leaving the trial are given by 0.5, 1, 2.5, 2.5, 5, 10 and 20 then for the subject censored at time 10, a Cox model would have been fitted to only the sample 20. If the minimum subjects parameter is set to 4 then the subjects with time $>=$ 2.5 will be included in the Cox model fit (with time dependent variables at their values at time 2.5).
+
+\subsection{Kaplan-Meier Imputation}
+
+In order to impute $\{ Y^m_i, \Delta^m_i \}$ we take the given risk set $R(i^+,NN)$ and use KMI. We draw the Kaplan-Meier estimator of the subjects in the risk set. We then sample $U \sim [0,1]$ and take the time at which the KM estimator equals $U$ (see the Figure below for further details) as the imputed event time.
+<<,echo=FALSE,fig.cap="Kaplan-Meier Imputation. In this example, for the KM curve shown, we sampled $U=0.75$ and this implies an imputed event time of 40. If $U$ is less than any value on the KM curve (e.g. if $U=0.1$ in this example) then the subject's imputed time is the last censored time of the risk set (in this example time 60) and the subject is censored rather than having an event at this time.">>=
+library("survival")
+my.df <- data.frame(time=c(20,30,40,50,60),event=c(1,0,1,0,0))
+plot(survfit(Surv(time,event)~1,data=my.df,conf.int=FALSE),xlab="Time")
+arrows(x0=0,y0=0.75,x1=40,y1=0.75,col="red",lty=2)
+arrows(x0=40,y0=0.75,x1=40,y1=0,col="red",lty=2)
+mtext(text = "U",side = 2,at=0.75,col="red")
+@
+
+In certain cases we wish to impute the event time for all subjects; however, in other cases we are interested in imputing what the data would look like on a given calendar date, the data cut off (DCO) date. For example, if a subject was recruited 10 days after the study started and was withdrawn 20 days later, we could impute that the subject and an event after 115 days on the trial. However, if the cutoff date was 100 days after the trial start date then this event would not have been observed.
+
+For each subject a \texttt{DCO.time}, $D_i$ is required. In the example above $D_i=90$ as after 90 days on the study the subject would have been censored at the DCO date. In general, if the imputed time $Y^m_i \ge D_i$ then $Y^M_i=D_i$ and $\Delta^m_i=0$, i.e. the subject is censored at the DCO date\footnote{Note this was not mentioned in \cite{Hsu:2009}, however, by setting $D_i=$ \texttt{Inf}, the original method can be reproduced-- see below}.
+
+\subsection{Bootstrapped data to fit the models}
+\label{boot}
+The addition of a bootstrapping step ensures that the multiple imputations are proper, such that Rubin's rules provide a valid estimate of variance \cite{Hsu:2009}. Specifically, for each imputed data set, proportional hazard models are fitted to a bootstrapped data set (keeping the same treatment group allocation ratio) and risk scores are calculated. The risk set for subject $i$ from the original data set is then given by the nearest neighbours to $i$ in the bootstrapped data set using the calculated risk scores from the newly fitted models. For each subject $i$, I calculate the raw risk score for subject $i$ using the fitted models\footnote{In the time dependent case, subject $i$ uses the values of its time dependent covariates at its censoring time}. I then take this score and the normalized scores from the (bootstrapped) data set used to fit the model to calculate a normalized score for subject $i$ (using the same mean and variance normalization factors). These scores can then be used for risk set identification for subject $i$. 
+
+\subsection{Test Statistics}
+
+Given $M$ imputed data sets, we can perform time to event statistical analyses on each data set. The results can be combined to give a single p-value estimate in two distinct ways:
+\begin{itemize}
+\item \textbf{meth1:} Each data set produces a single point estimate for the null hypothesis ($\theta=\theta_0$) and these can be combined to obtain a single point estimate $\bar\theta$ with associated variance $V_1=U_1+(1+M^{-1})B_1$ where $B_1$ is the sample variance of the $M$ point estimates and $U_1$ is the average of the $M$ variance estimates. The test statistic $D = (\bar\theta - \theta_0)'V_1^{-1} (\bar\theta - \theta_0)$ has a $F_{1,v_1}$ distribution with $v_1= 4 + (t-4)(1+(1-2t^{-1})/r)^2$ where $t=M-1$ and $r=(1+M^{-1})B_1U_1^{-1}$. Specifically, the p-value is given by the R code \texttt{(1-pf(D,1,v1))}. \textbf{Note, the degrees of freedom are given by \cite{Li:1991} rather than \cite{Hsu:2009} (which used $4 + (t-4)(1+(1-2t^{-1})/r)$)}.
+\item \textbf{meth2:} Each data set produces a (normal) test statistic $Z_1,Z_2,\ldots,Z_m$ and these can be averaged to give an overall test statistic $\bar{Z}$ with variance $V_2= 1+(1+M^{-1})B_2$ where $B_2$ is the sample variance of the $Z_i$. A $t$-test statistic with $v_2$ degrees of freedom can be used to with the statistic $s=\bar{Z}/\sqrt{V_2}$ where $v_2=[1+(M/(M+1))/B_2]^2(M-1)$. Specifically, the p-value is given by the R code \texttt{2*(1-pt(abs(s),v2))}.
+\end{itemize}
+We refer the reader to \cite{Hsu:2009} for further details.
+
+
+\section{Using the package}
+We first load the package and set the seed for reproducibilty:
+<<loadpackage,message=FALSE>>=
+library(InformativeCensoring)
+set.seed(421234)
+@
+
+\section{Time Independent Covariates}
+
+In this Section we apply the method to time to event data with only time independent covariates.
+
+\subsection{Data}
+
+We use a simulated data set inspired by the simulation procedure given in \cite{Hsu:2009}. We first load the data:
+<<loaddata>>=
+data(ScoreInd)
+
+head(ScoreInd)
+@
+
+The data set contains the following columns:
+\begin{itemize}
+\item \texttt{Id}: Subject Id
+\item \texttt{arm}: Treatment group (0=control, 1=active)
+\item \texttt{Z1-Z5}: Time independent covariates; Z1, Z3 and Z5 are binary, Z2 and Z4 are real valued
+\item \texttt{event}: Event indicator (0=censored, 1=had event), $\Delta_i$.
+\item \texttt{time}: The time the subject was censored/had event (in years), $X_i$.
+\item \texttt{to.impute}: Should the subject's time to event be imputed -- if subject had event this column is ignored
+\item \texttt{DCO.time}: The time the subject would have been censored if they were still on the trial at the data cutoff time, $D_i$, if an event time is imputed after DCO.time then the subject will be censored at DCO.time
+\end{itemize}
+
+We ensure that the treatment group flag is a factor and that the control group is the first level
+<<factor>>=
+ScoreInd$arm <- factor(ScoreInd$arm)
+
+levels(ScoreInd$arm)
+@
+
+\label{col.control}
+The risk score imputation procedure needs to know which columns of the data frame represent subjects' 
+event indicator, time on study, Id, treatment arm, DCO time and whether times are to be imputed. The \texttt{col.headings} function is used to setup this information:
+<<>>=
+col.control <- col.headings(has.event="event", time="time",Id="Id",arm="arm",
+                            DCO.time="DCO.time", to.impute="to.impute")
+@
+
+If administrative censoring is being taken into account then an additional argument is required to the \texttt{col.headings} function (see later in the vignette for further details).
+
+\subsection{Imputed Dataset}
+
+We use the \texttt{ScoreImpute} function to generate the imputed data sets:
+<<>>=
+imputed.data.sets <- ScoreImpute(data=ScoreInd,event.model=~Z1+Z2+Z3+Z4+Z5,
+                                 col.control=col.control, m=5,
+                                 bootstrap.strata=ScoreInd$arm,
+                                 NN.control=NN.options(NN=5,w.censoring = 0.2))
+@
+
+The \texttt{ScoreImpute} function uses the following arguments:
+\begin{itemize}
+\item \texttt{data} The data frame to be used for the imputation
+\item \texttt{event.model}: The right hand side of the formula for the Cox model fit for the model used to calculate the time to event scores ($\hat{RS_f}$). The terms \texttt{cluster} and \texttt{tt} cannot be used in the model formula.
+\item \texttt{censor.model}: The right hand side of the formula for the Cox model fit for the model used to calculate the time to censoring scores ($\hat{RS_c}$). If this argument is not used then the \texttt{event.model} argument is used instead.
+\item \texttt{col.control}: Key column names of the data set, see Section \ref{col.control} for further details 
+\item \texttt{m} The number of data sets to impute (must be $>4$) 
+\item \texttt{bootstrap.strata} When performing the bootstrap procedure to generate the data sets for the model fits, the strata argument for the bootstrap procedure (see \texttt{help(boot)} for further details).
+\item \texttt{NN.control}: The options used by the risk score imputation method when calculating the risk set for each subject. The \texttt{NN.options} function should be used with the following two options:
+\begin{itemize}
+\item \texttt{NN}: The size of the risk set.
+\item \texttt{w.censoring} The weighting ($w_c$) to be applied to the censoring score ($\hat{RS_c}$) when calculating the distance between subjects. The weighting, $w_f$ applied to the event score ($\hat{RS_f}$) is given by \texttt{1-w.censoring}.
+\item \texttt{min.subjects} Only used for the time dependent case: the minimum number of subjects to be included when fitting the Cox models, see \texttt{help(NN.options)} for default value. \end{itemize}
+\item \texttt{time.dep}: Additional data to perform time dependent score imputation method, see Section \ref{timedep} for details.
+\item \texttt{parallel}, \texttt{ncpus}, \texttt{cl}: parallelism options, see \texttt{help(gammaImpute)} and the \texttt{parallel} package vignette for further details -- note when using \texttt{parallel="multicore"} or \texttt{parallel="snow"} it is necessary to set the random number generator to type L'Ecuyer-CMRG using the command \texttt{RNGkind("L'Ecuyer-CMRG")} in order to ensure proper random number stream behaviour. A warning is output if this is not the case, see \texttt{parallel} package vignette for further details. 
+\end{itemize}
+
+Any additional arguments are passed to the Cox model fit function (\texttt{survival::coxph}). Note, the \texttt{subset} and \texttt{na.action} arguments cannot be used (\texttt{na.fail} is used)
+
+\paragraph{Cox model convergence issues:} There may be issues with convergence of the various Cox models, especially in the time dependent case and those with not many data points with lots of covariates. If this occurs a warning \texttt{Warning in fitter(X, Y, strats, offset, init, control, weights = weights, :  Ran out of iterations and did not converge} is output. It is possible to use ridge regression by including a \texttt{ridge} term in the model formula, for example \texttt{event.model=} $\sim$ \texttt{Z1+Z2+Z3+Z4+ridge(Z5,theta=1)}; see \texttt{help(ridge)} for further details.\footnote{The formula and data get passed into \texttt{coxph} and then \texttt{predict(coxph.model,type="lp")} and \texttt{predict(coxph.model,type="lp",newdata=...)} are used. For complex formulae it may be worth checking directly that these functions perform as you expect before using them inside the Score Imputation procedure.} 
+
+\paragraph{Accessing individual imputed data sets:}
+We use the \texttt{ExtractSingle} function to extract out a single imputed data set. The \texttt{index} argument is an integer between 1 and $m$ allowing the user to specify which imputed data set is to be extracted:
+<<>>=
+#for the third data set
+imputed.data.set <- ExtractSingle(imputed.data.sets,index=3)
+@
+
+We can view the imputed data. Note the two new columns, \texttt{impute.time} and \texttt{impute.event}:
+<<>>=
+head(imputed.data.set$data)
+@
+
+\subsection{Model Fit the Imputed Data}
+
+Given the imputed data sets we use the \texttt{ImputeStat} function to fit a model to each data set and we again use the \texttt{ExtractSingle} to view the individual fit:
+
+<<fit>>=
+logrank.fits <- ImputeStat(imputed.data.sets,method="logrank",
+                           formula=~arm+strata(Z1,Z3))
+
+third.fit <- ExtractSingle(logrank.fits,index=3) #view log rank fit for third data set
+print(third.fit)
+@
+
+
+The \texttt{method} argument must be one of `logrank', `Wilcoxon'\footnote{The Wilcoxon uses the Peto \& Peto modification of the Gehan-Wilcoxon test (i.e.\ \texttt{survival::survdiff} with \texttt{rho=1})} or `Cox'. 
+
+In the logrank and Wilcoxon cases the point estimate is for $O-E$ (observed - expected) and the test statistic $Z=\frac{O-E}{\sqrt{V}}$  which is standard normal distribution ($Z^2$ is the standard $\chi^2$ test statistic). In the Cox case the point estimate is for the log of the hazard ratio.
+
+When fitting models a formula can be included (only the right hand side of the formula is needed). In the example below we fit a Cox model with arm and the 5 covariates:
+
+<<>>=
+Cox.fits <- ImputeStat(imputed.data.sets,method="Cox",
+                   formula=~arm+Z1+Z2+Z3+Z4+Z5)
+
+ExtractSingle(Cox.fits,index=3)$model
+@
+
+There are a few rules regarding acceptable formulae: the first term must be the treatment group indicator and there can be no interactions between the treatment group and the other covariates. For the Wilcoxon and logrank tests only \texttt{strata} terms can be included alongside the treatment group. For the Cox model: stratified Cox models can be used (e.g.\ $\sim$\texttt{arm+strata(Z1,Z3)}), though the \texttt{cluster} and \texttt{tt} terms cannot be used. Finally if no formula argument is included then a model with only treatment group as a covariate is used. Other arguments to \texttt{ImputeStat} are passed into the model fitting function.
+
+The \texttt{ImputeStat} function can be parallelized using the same \texttt{parallel}, \texttt{ncpus} and \texttt{cl} arguments as described above for the \texttt{ScoreImpute} function. 
+
+We can view a matrix of the test statistics:
+<<>>=
+Cox.fits$statistics
+@
+
+Each row of the matrix is the point estimate, its variance and the test statistic (\texttt{=estimate/sqrt(var)}) from a single imputed data set.
+
+\subsection{Calculating Summary Statistics}
+
+Summarizing the results averages the test statistics following the two methods described above.
+<<>>=
+final.answer <- summary(Cox.fits)
+
+print(final.answer)
+
+#can access individual elements of the summary
+cat("log HR estimate:", final.answer$meth1$estimate)
+@
+
+Finally we can view the confidence interval on the log hazard ratio:
+<<>>=
+confint(final.answer, level=0.95)
+@
+
+The confidence interval is estimated using Rubin's rules \cite{Rubin:1987} to estimate the standard error and number of degrees of freedom of for the $t$-distribution.
+
+\subsection{Administrative Censoring}
+
+By default, both subjects who are administratively and non-administratively censored are deemed to have `the event of censoring' when calculating the cox regression model to calculate $\hat{RS_c}$. It may be beneficial to state that only non-administratively censored subjects have `the event of censoring' when fitting this model. This is possible by defining a censor type column in the data frame containing the values 0, 1 and 2 where 0 = has event, 1=non-administratively censored and 2=administratively censored. Only subjects with a 1 in this column will be considered as having `the event' of censoring.
+
+Suppose in our toy example, subjects 2 and 3 were administratively censored. First we set up the new column of the data frame:
+<<>>=
+ScoreInd$Ctype <- 1 - ScoreInd$event
+ScoreInd$Ctype[ScoreInd$Id %in% c(2,3)] <- 2
+@
+
+Next we use the \texttt{censor.type} argument when creating the column control object:
+<<>>=
+col.control.a.censor <- col.headings(has.event="event",time="time",Id="Id",
+                            arm="arm",DCO.time="DCO.time",
+                            to.impute="to.impute",
+                            censor.type="Ctype") #Note new arg
+@
+
+The rest of the imputation procedure is exactly as before:
+<<>>=
+with.a.censor <- ScoreImpute(data=ScoreInd,m=5,
+                event.model=~Z1+Z2+Z3+Z4+Z5,
+                censor.model=~Z1+Z3+Z5,
+                bootstrap.strata=ScoreInd$arm,
+                col.control=col.control.a.censor,
+                NN.control=NN.options(NN=5,w.censoring = 0.2))
+@
+
+
+\section{Time Dependent Covariates}
+\label{timedep}
+
+It is possible to use this method with time dependent covariates. Specifically, for every censored observation, two time independent proportional hazard models are fitted to the data of those at risk at the censoring time using the currently available time dependent variables as fixed covariates \cite{Hsu:2009}. The package can be used with time dependent variables. First we load a data set of time dependent covariates which can be used with the \texttt{ScoreInd} data set above.
+
+<<>>=
+data(ScoreTimeDep)
+
+head(ScoreTimeDep)
+@
+
+The data set has two time dependent covariates \texttt{W1} and \texttt{W2} and is in panel format; the value of the covariate  in \texttt{(start,end]} for subject with the given \texttt{Id} is given in each row. In order to use this data set within the score imputation method we first use the \texttt{MakeTimeDepScore} function with a chosen data frame, giving three additional arguments, the column names of subject Id and the start and end points of the time interval for the panelling.
+
+<<>>=
+time.dep <- MakeTimeDepScore(ScoreTimeDep,Id="Id",
+                            time.start="start",
+                            time.end="end")
+
+head(time.dep)
+@
+
+Using the \texttt{time.dep} argument to \texttt{ScoreImpute} we can impute data using the time dependent covariates (note the \texttt{min.subjects} argument used to control the minimum number of subjects used when fitting the Cox models) and the rest of the imputation procedure is exactly as for the time independent case:
+
+<<>>=
+imputed.data.with.td <- ScoreImpute(data=ScoreInd,
+                            m=5, bootstrap.strata=ScoreInd$arm,
+                            event.model=~Z1+ridge(W2,theta=1), #Note the W2 and
+                            censor.model=~Z2+ridge(W2,theta=1),  #ridge here
+                            col.control=col.control,
+                            NN.control=NN.options(NN=12,w.censoring = 0.2,
+                                                  min.subjects=35), #min.subjects argument
+                            time.dep=time.dep) #key argument
+@
+
+Note if the \texttt{time.dep} argument is used separate models will be fitted for each censored observation as described in the introduction and it is possible the Cox model will fail to converge. Ridge regression (e.g \texttt{ridge(W2,theta=1)} in the example above) can be used when fitting the Cox model. See \texttt{help(ridge)} for further details.  
+
+
+\bibliographystyle{plain}
+\bibliography{bibliography}
+
+\end{document}

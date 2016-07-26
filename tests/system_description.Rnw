@@ -1,0 +1,286 @@
+\documentclass{article}
+
+\usepackage{fullpage}
+\usepackage{url}
+\usepackage{color}
+\usepackage{authblk}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+%\VignetteEngine{knitr::knitr}
+
+\begin{document}
+
+\title{Informative Censoring - System Description}
+\author{Nikolas S. Burkoff}
+
+\maketitle
+
+The purpose of this report is to document the system design and testing of the InformativeCensoring R package. With regard to testing, this document focuses on the low level unit and integration tests. We refer the reader to an additional report containing the system and acceptance level testing. It is recommended to read this report with access to the package documentation and testthat code.  
+
+\section{Risk Score Imputation}
+
+\subsection{Algorithm}
+
+The Risk Score Imputation algorithm is the multiple imputation algorithm described in: Nonparametric comparison of two survival functions with dependent censoring via nonparametric multiple imputation, Hsu, Chiu-Hsieh and Taylor, Jeremy MG, \textit{Statistics in Medicine}, (2009), 28 (3) 462--475.
+
+The risk score imputation approach creates multiple imputations of event times for those subjects whose event times were censored. The imputation procedure utilizes subject level covariates, which may be time-varying, and relaxes the assumption of independent censoring to an assumption that the event time and censoring time are conditionally independent given the covariates. This means that covariates which are known or believed to be related both to the hazard of failure and the hazard of censoring should be included in the imputation process.
+
+The complete algorithm takes a time-to-event data set with censoring, together with parameters (see below) and outputs a set of imputed time to event data sets. Standard time-to-event analyses are applied to this data and the results are combined together, using methods described in the original paper, to produce estimates and test statistics for treatment effect.
+
+The algorithm provides many options these include:
+\begin{itemize}
+\item Freedom to choose the model formulae used when fitting the Cox models for calculation of the risk score, this can include ridge regression to aid model convergence 
+\item Option to include time dependent covariates as described in the original article and a minimum number of subjects to be used when fitting the Cox models in this case
+\item Freedom to choose the number of subjects in the risk set and the weighting of the censored risk score in the calculation 
+\item Option to include a subject specific cutoff time and if a subject has an imputed event after this time, they are censored at this cutoff time
+\item Option to allow a `censoring type' argument to distinguish between administrative and non administrative censoring time
+\item A choice of logrank, Wilcoxon or Cox method when performing analyses on the imputed data sets
+\item Complete control over the imputed data sets and the model fits/tests associated with them, for example it is possible to extract the logrank test performed on the third imputed data set if required 
+\item Imputation and model fitting has been parallelised
+\end{itemize}
+\subsection{Software Design and Testing}
+
+The following objects are used with the Risk Score method:
+\begin{itemize}
+\item \textbf{ScoreImputedSet} contains the data for multiple imputed data sets, this object can be thought of as a list of imputed data sets from the same imputation procedure (though to minimize memory requirements it is not stored as such -- an ``Extract" method allows individual data sets to be reconstituted). The object's constructor is the ScoreImpute function which requires an initial data frame and arguments concerning the model fits (e.g. formulae) and risk score options (e.g. number of subjects in risk set) and the bootstrap procedure (bootstrap.strata, number of sample etc.). 
+
+\item \textbf{ScoreImputedData} contains a single imputed data set. This object is created by calling the Extract function for a ScoreImputedSet object 
+
+\item \textbf{ScoreTD} contains the data frame of time dependent covariates used as an input in the time dependent version of the imputation. The algorithm combines this object with the baseline covariate data set taking the appropriate values of the time dependent covariates. This merged data frame is then used when fitting the Cox models when creating a ScoreImputedSet object.
+
+\item \textbf{ScoreStat} contains the model fit and test statistic for a single ScoreImputedData object. This object is created by fitting a model (e.g. Cox regression) or performing a nonparametric test (e.g. logrank) to a ScoreImputedData object. Standard functions from the survival package are used for the fit. 
+
+\item \textbf{ScoreStatList} is created when fitting a model to a ScoreImputedSet object, so that the same model is fitted to each imputed data set. This object contains a ScoreStatSet object (see below) and a list of ScoreStat objects, one per imputed data set. 
+\item \textbf{ScoreStatSet} is a matrix of test statistics for a single ScoreImputedSet object. It contains 3 columns (the estimate of the treatment effect, its variance and the Z test statistic associated with it) and one row per imputed data set. This object is automatically created when fitting a model to a ScoreImputedSet object.  
+
+\item \textbf{summary.ScoreStatSet} contains the combined test statistics (using both meth1 and meth2 from the Hsu and Taylor paper) for a ScoreImputedSet object. The coefficient estimates and test statistics are combined when calling the summary function on either a ScoreStatSet or ScoreStatList object.
+
+\item \textbf{NN.option} a list containing the options for the risk score imputation method. Specifically: NN, the number of subjects in the risk sets; w.censoring, the weight associated with the censored risk score when calculating distances between subjects and min.subjects the minimum number of subjects to be used when fitting Cox models in the time dependent case.
+
+\item \textbf{col.control} a list containing the column names associated with the event indicator, arm etc. from the input data set. This is used to allow users to include arbitrary column names rather than insisting, say, the event column indicator is called `event'. 
+\end{itemize}
+
+\subsection{ScoreImputedSet}
+
+The ScoreImpute function performs the multiple imputation and creates the object. 
+
+\paragraph{Validation functions}
+The arguments are checked in the validate.Score.Arguments function and associated subfunctions.  
+This function is extensively tested in the following testthat functions:
+\begin{itemize}
+\item validate\_Score\_arguments\_control (to check the col.control argument and the data frame are compatible) 
+\item validate\_Score\_arguments\_data\_and\_Call (to check the data frame and call arguments are valid)
+\item validate\_Score\_arguments\_timedep (for when the time dependent option is used) 
+\item Invalid\_censortype (for when the censor.type option is used)
+\item .additionalScore.validate\_control (to check the col.control argument and the data frame are compatible) 
+\item .additionalScore.validate (to check the data frame is compatible) 
+\end{itemize}
+
+The model formulae are checked before the models are fitted using the .validRHSFormula function (in internalScore.R). This function is tested in the testthat .validRHSFormula function (and the helper function .getResponse is also tested by the .getResponse testthat function).  
+
+More direct testing on the input arguments to ScoreImpute can be found in the arguments\_to\_ScoreImpute testthat function. 
+
+\paragraph{Internal functions}
+
+A number of functions are called by the ScoreImpute function in order to perform the imputation:
+\begin{itemize}
+\item Sfn, a simple wrapper function which calls .imputeTimes twice, once for each arm. It is tested with the integration tests below and by the system tests in the additional report.
+\item .imputeTimes which performs the complete imputation for a single arm and this is tested with the integration tests below and by the system tests in the additional report. \textbf{Note:} the logic of the internal function .imputeTimes is rather complex and a large amount of explanation is given in the function header and throughout the function itself.
+\item .kmi performs the Kaplan-Meier imputation given a risk set and is tested with the testthat functions .kmi\_deterministiccases and kmi\_stochastic
+\item .calcscores fits the model(s) to the bootstrap data and creates the risk scores and calls the .fitPHmodel function which is tested (both the censor and event cases) with the .fitPHmodel testthat function
+\item .getTimeDepDataSet see ScoreTD section
+\item .calcDistances which calculates the distances between the given data point and the bootstrapped set, this function calls .internalDistances and normalize.scores functions that are tested in the testthat .internalDistances and normalize.scores functions
+\item .getRiskSet creates the risk set for a given subject and is tested in the getriskset testthat function
+\item .getLatestTimeCutoff Used when a min.subjects argument is used for the time dependent case. This is tested in the testthat getLatestTimeCutoff function
+\end{itemize}
+
+\paragraph{Higher level Tests}
+
+The object construction is tested in ScoreImputedDataOutput and ScoreImputeSet\_extract testthat functions and further tests can be found in 
+\begin{itemize}
+\item algorithm\_is\_stochastic checking different seeds produce different answers 
+\item factor\_numeric\_character\_Id\_same\_answer checking merge behaviour works as expected whatever format the subject ID is (this has caused issues previously)
+\item using\_censor\_type\_gives\_same\_result\_as\_not\_if\_no\_administrative\_censoring checking the censor.type argument works as expected
+\item ordering\_timeindep checks the ordering of the subject IDs does not affect the procedure (problems with merge not preserving ordering have been caught and fixed)
+\item Sfn\_time\_dep tests the time dependent imputation code produces output
+\end{itemize}
+
+\subsection{ScoreTD}
+
+The constructor function is MakeTimeDepScore and it is tested by the following testthat functions:
+\begin{itemize}
+\item MakeTimeDepScore\_invalid tests input argument validation
+\item MakeTimeDepScore tests object construction
+\item checkContiguous tests that the rows associated with a given subject are contiguous in the input data frame
+\item checkPanelling\_invalid tests that errors are output if time.start and time.end times to not match up or contain other errors (e.g. if first time is not 0)
+\item checkPanelling\_valid tests that acceptable time.start, time.end columns are accepted by the object without causing an error. \end{itemize}
+
+The .getTimeDepDataSet function takes as input a data frame of baseline covariates and a scoreTD function and outputs the baseline data frame with additional columns for the value of time dependent covariates at a given time. This function is not exported and is tested by the following testthat functions:
+\begin{itemize}
+\item .getTimeDepDataSet\_invalid tests if invalid combinations of baseline and time dependent data are included (although most things have already been caught and tested before this function is called)
+\item .getTimeDepDataSet\_nullmy.time tests if the my.time argument is NULL then the subject's time dependent covariate values are output at their censored/event time
+\item .getTimeDepDataSet\_my.time tests if the my.time argument is not NULL then the subject's time dependent covariate values are output at the given my.time 
+\item bootstrap\_df\_OK\_with\_timedep tests the .getTimeDepDataSet function can work with bootstrapped data (so that it is OK for non-unique rows are in the data frame and that the output data frame contains subjects in the same order as the input data frame)
+\end{itemize}
+
+\subsection{ScoreImputedData}
+
+This object contains a single imputed data set and is created by calling the ExtractSingle function dispatched on a ScoreImputedSet object. This extract function is tested using the testthat functions ExtractSingle.Stat and ScoreImputeSet\_extract. Additional tests on the object can be found in the testthat function ScoreImputedDataOutput.
+
+\subsection{ScoreStat}
+
+This object is created by the ImputeStat function (dispatched on an ScoreImputedData object) which takes a ScoreImputedData object and fits a model. The specific model fitting is delegated to a subfunctions which have been tested together with the constructor. This function is tested by the following testthat functions:
+\begin{itemize}
+\item creation\_invalid\footnote{the testthat framework provides a context which groups together related tests so it is not necessary to call this test ScoreStat\_creation\_invalid} checks the function throws an error if an invalid method or formula argument is used (e.g. the treatment arm must be the first element on the right hand side of the formula)
+\item logrank tests the logrank test and that the correct test stat, coefficient estimate and variance is extracted
+\item Wilcoxon tests the Wilcoxon test and that the correct test stat, coefficient estimate and variance is extracted
+\item Cox\_defaultformula tests the cox regression, coxph, and that the correct test stat, coefficient estimate and variance is extracted when the user does not give a formula so $\sim$ treatment\_arm is used 
+\item Cox\_usersuppliedformula tests the cox regression, coxph, and that the correct test stat, coefficient estimate and variance is extracted when the user gives a formula (and throws an error if an invalid formula is used)
+\item Logrank\_Wilcoxon\_usersupplied\_formula tests the stratified logrank/wilcoxon output the correct survdiff object and test stat, coefficient estimate and variance is extracted
+\end{itemize}
+
+This object also has an as.vector function to convert the object's coefficient/variance/test stat estimates into a vector, this function is tested asvector testthat function.  
+
+\subsection{ScoreStatSet}
+
+The object is created either by ImputeStat function (dispatched on an ScoreImputedSet object), tested in the systems test document, or can be created from an existing matrix object. The object creation is tested by the testthat functions from\_matrix\_invalid and from\_matrix functions. See summary.ScoreStatSet Section for further details. 
+
+\subsection{ScoreStatList}
+
+This object is created by the ImputeStat function (dispatched on an ScoreImputedSet object) and is a wrapper which extracts each ImputedData set, performs the appropriate analysis and pools together the coefficient estimates etc. into a ScoreStatSet object. This wrapper is tested in the system level tests document. The ExtractSingle.Stat testthat function tests that individual ScoreStat objects can be extracted. 
+
+\subsection{summary.ScoreStatSet}
+
+To test the summary.ScoreStatSet functionality, the following testthat functions have been implemented:
+\begin{itemize}
+\item summary\_creation tests the construction of the object (i.e.\ the object contains the correct properties etc.)
+\item summary\_all\_rows\_same tests the different methods of combining the multiple imputation statistics in the simple edge case of M identical test statistics/coefficients.
+\item summary\_system\_test tests (for a given mocked ScoreStatSet) that the correct algebra is being followed when using meth1 and meth2
+\item methRubin In order to calculate confidence intervals standard Rubin's rules have to be calculated and this test checks for a mocked ScoreStatSet object that the correct algebra is being calculated
+\item meth1.df tests the degrees of freedom calculation for meth1 (see vignette for details)
+\item confint tests the confidence interval calculation
+\end{itemize}
+
+\subsection{NN.option and col.control}
+
+For NN.option, the constructor function NN.options is tested in the testthat functions NN.options\_invalid and NN.options.  
+
+For col.control, the constructor function col.headings is tested in the testthat function col.headings and the interaction between the data set and the col.control list takes place in the validate\_Score\_arguments\_control and .additionalScore.validate\_control testthat functions. 
+
+\section{Gamma Imputation}
+
+\subsection{Algorithm}
+The gamma imputation algorithm is the multiple imputation algorithm described in Relaxing the independent censoring assumption in the Cox proportional hazards model using multiple imputation, Jackson et al., \textit{Statistics in medicine}, 33(27)4681--4694.
+
+The gamma imputation approach introduces a parameter gamma by which the hazard `jumps' upon censoring (it can be thought of as the coefficient of a time dependent binary covariate of censoring). A standard proportional hazards model is fitted to the raw data and subjects who are censored have simulated event times using the model fit after incorporating the hazard jump. 
+
+The complete algorithm takes a time-to-event data set with censoring, together with parameters (see below) and outputs a set of imputed time to event data sets. Standard time-to-event analyses are applied this data and the results are combined together using Rubin's rules.
+
+The algorithm provides many options these include:
+\begin{itemize}
+\item Freedom to chose the model formulae when fitting the Cox models
+\item Option to use subject specific gamma specified either as a column name or a vector of values
+\item If gamma is NA then not to perform imputation for this subject and both positive and negative infinite gamma can be used (see vignette for details)
+\item Option to include stratified sampling for the bootstrap procedure
+\item Option to include a subject specific cutoff time and if a subject has an imputed event after this time, they are censored at this cutoff time -- this can be given either as a column name of the data frame, a vector of values or a single integer. 
+\item A choice of Cox, Weibull or exponential model fitting when performing analyses on the imputed data sets
+\item Complete control over the imputed data sets and the model fits/tests associated with them, for example it is possible to extract the Cox model fit performed on the third imputed data set if required. The scaled Shoenfeld residuals (cox.zph) has been overloaded and can be used directly with the gamma fit objects 
+\item Imputation and model fitting has been parallelised
+\end{itemize}
+
+
+\subsection{Software Design and Testing}
+
+The structure of the code for the gamma imputation closely mirrors the risk score imputation method and both algorithms use the same common code where possible (especially the extracting and fitting of MI data sets - see generic.R)
+
+The following objects are used with the gamma imputation method:
+\begin{itemize}
+\item \textbf{GammaImputedSet} contains the data for multiple imputed data sets, this object can be thought of as a list of imputed data sets from the same imputation procedure (though to minimize memory requirements it is not stored as such -- an ``Extract" method allows individual data sets to be reconstituted). The object's constructor is the gammaImpute function.
+
+\item \textbf{GammaImputedData} contains a single imputed data set. This object is created by calling the Extract function for a GammaImputedSet object 
+
+\item \textbf{GammaStat} contains the model fit and test statistic for a single GammaImputedData object. This object is created by fitting a model (e.g. Cox regression) or performing a nonparametric test (e.g. logrank) to a GammaImputedData object. Standard functions from the survival package are used for the fit. 
+
+\item \textbf{GammaStatList} is created when fitting a model to a GammaImputedSet object, so that the same model is fitted to each imputed data set. This object contains a list of GammaStat objects, one per imputed data set. 
+
+\item \textbf{summary.GammaStatList} is a matrix which combines the test statistics (using Rubin's rules) for a GammaStatList object. 
+\end{itemize}
+
+\subsection{GammaImputedSet}
+
+The gammaImpute function performs the multiple imputation and creates the object.
+
+\paragraph{Validation functions} The majority of the arguments are validated in the validate.Gamma.arguments function and its subsequent function calls (although a few, such as gamma and gamma.factor have some initial validation directly in gammaImpute)
+
+The testthat functions which test the validity of the arguments to gammaImpute are:
+\begin{itemize}
+\item invalid\_rhs\_formula (checks the validity of the covariates)
+\item validate\_gamma\_arguments\_lhs\_formula and negative\_time (checks the left hand side of the model is a valid Surv object)
+\item validate\_gamma\_arguments\_m\_gammafactor\_and\_strata\_call (checks m, gamma.factor, (bootstrap) strata and function call)
+\item validate\_gamma\_arguments\_data (checks the data frame)
+\item validate\_DCO.time (checks data cutoff time)
+\item Validate\_gamma (checks gamma)
+\end{itemize}
+
+\paragraph{Internal functions} A number of functions are used to perform the imputation:
+\begin{itemize}
+\item .singleGammaImpute The function which performs the imputation compared to the equivalent function for the risk score imputation (.imputeTimes) the logic in this function is significantly simpler. It is tested with the integration tests below and by the system tests in the additional report 
+\item .SetupStrataBaseHaz calculates the baseline hazard data frame for each strata and assigns each subject to their appropriate strata. The following testthat functions test this code:
+\begin{itemize}
+\item untangle.specials.behaves.as.expected - testing the survival package untangle.specials function
+\item .SetupStrataBaseHaz.no.strata -- if no strata are used the function outputs are as expected
+\item .SetupStrataBaseHaz.one.strata -- if a single strata is used the function outputs are as expected
+\item .SetupStrataBaseHaz.two.strata -- if multiple strata (strata(x,y)) are used the function outputs are as expected 
+\item .SetupStrataBaseHaz.strata.error -- if the bootstrap.strata argument was wrong and we cannot assign a subject to one of the allowed strata then an error is produced
+\end{itemize}
+\item .CoxMImpute performs the simulation of imputed times this is tested with the testthat function .CoxMImpute which compares to package results to Dan Jackson's initial code snippet 
+\end{itemize}
+
+Two further functions getGamma (a simple function to extract the correct value of gamma given the different allowed gamma input arguments -- tested by gamma\_and\_gamma\_factor) and getCovarFormula (extracts rhs of formula, from nlme package) are also used. 
+
+\paragraph{Higher level Tests} The object construction is tested in the GammaImputeSet\_object testthat function. Further integration tests can be found in the following testthat functions:
+\begin{itemize}
+\item gamma.factor checks the gamma x gamma.factor behaviour 
+\item inf.gamma.factor checks positive and negative infinite gamma
+\item impute.times.non\_stochastic\_tests checks times are $<$ DCO.time and NA gamma denotes no imputation
+\item internal\_gamma\_val\_same\_with\_colname\_or\_vect tests input vector gamma and gamma as a column name of data frame produce same answer when expected to
+\item gamma\_and\_gamma\_factor tests missing one on gamma and gamma.factor as inputs to gammaImpute
+\item DCO.time\_vector check (with gamma = -Inf) that if subjects have different DCO times then their imputed times are their own DCO.time
+\item DCO.time\_different\_inputs\_agree
+\end{itemize}
+
+\subsection{GammaImputedData}
+
+Many of the test functions described for the GammaImputedSet object, extract a GammaImputedData object as part of their tests and impute.times.non\_stochastic\_tests explicitly tests the GammaImputedData extraction and object creation.
+
+\subsection{GammaStat \& GammaStatList}
+
+The following testthat functions test the GammaStat and GammaStatList objects:
+\begin{itemize}
+\item GammaStat -- tests the object constructor for GammaStat
+\item weibull\_and\_exponential -- tests fitting Weibull and exponential model fits 
+\item default\_formula\_behaves\_as\_expected -- tests if no formula is fitted then the default formula (The same formula as used for the imputing model but using the imputed times and event indicators)
+\item GammaStatSet Test the object constructor for GammaStatSet and that fitting a model on an extracted imputed data set is the same as extracting a model fit from a GammaStatSet object
+\item GammaStatSet\_multiplecovar Check the GammaStatSet works with multiple covariates
+\end{itemize}
+
+\subsection{summary.GammaStatList}
+
+The summary.GammaStatList function creates this object and averages the model coefficients using Rubin's rules. The testthat functions summary\_1\_covar and summary\_3\_covar use mocked GammaStatList objects to check that the arithmetic is being performed correctly. 
+
+
+\section{Parallelism}
+
+Both imputation algorithms and model fitting procedures have been parallelised. The code deliberately keeps the parallelism separate (see parallel.R source file). The behaviour (including reproducibility) has been taken from the \texttt{parallel} package documentation and is inspired by the \texttt{boot} package. The code is tested in the parallel.R test that file (note: these work with devtools::test but not R CMD check) and the following tests are performed:
+\begin{itemize}
+\item valid\_parallel\_args checks the input arguments parallel, ncpus and cl are valid
+\item parallel checks parallelism is working using dummy function and that a warning is shown if RNG other than L'Ecuyer-CMRG is used
+\item parallel\_score checks the risk score imputation parallelism does not produce errors
+\item parallel\_gamma checks the gamma imputation parallelism does not produce errors
+\item parallel\_seed \textit{demonstrates} the reproducibility of the parallelism when using the L'Ecuyer-CMRG RNG.
+\end{itemize}
+
+Note the use of the cl argument to pass in an already existent cluster for parallel=snow has not been tested as it is up to the user to configure their cluster themselves. 
+
+\end{document}

@@ -1,0 +1,21 @@
+Package: InformativeCensoring
+Type: Package
+Title: Multiple Imputation for Informative Censoring
+Version: 0.3.3
+Author: c(person("David", "Ruau", role=c("cre")),
+    c(person("Nikolas", "Burkoff", role=c("aut")),
+Maintainer: David Ruau <David.Ruau@astrazeneca.com>
+Description: Multiple Imputation for Informative Censoring
+License: GPL (>= 2)
+LazyLoad: yes
+Suggests:
+    knitr,
+    testthat,
+    parallel
+Depends:
+    R (>= 3.1.2),
+    survival (>= 2.36-1)
+Imports:
+    boot,
+    dplyr (>= 0.4.3)
+VignetteBuilder: knitr
