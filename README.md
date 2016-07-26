@@ -5,6 +5,10 @@ This R package implement two methods for multiple imputation of survival data.
 * Gamma imputation from Jackson et al. [1]
 * Risk score imputation from Hsu et al. [2]
 
+## Contributor (alphabetical order)
+Barlett, Jonathan; Burkoff, Nikolas; Jackson, Dan; Jones, Edmund; Law, Martin; 
+Metcalfe, Paul; Ruau, David;
+
 ## Gamma imputation (Jackson 2014)
 The Gamma imputation method implementation was developed in collaboration 
 between AstraZeneca, the MRC Biostatistics Unit and the University of Cambridge.
