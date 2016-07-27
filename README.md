@@ -33,7 +33,7 @@ practice and thorough user testing.
 To install the development version from github
 ```R
 # install.packages("devtools")
-devtools::install_github("hadley/ggplot2")
+devtools::install_github("scientific-computing-solutions/InformativeCensoring")
 ```
 
 [1] Dan Jackson, Ian White, Shaun Seaman, Hannah Evans, Kathy Baisley, and James Carpenter. Relaxing the independent censoring assumption in the Cox proportional hazards model using multiple imputation. Statistics in Medicine, 33(27):4681–4694, 2014.
