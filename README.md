@@ -19,6 +19,8 @@ Law, Martin; Metcalfe, Paul; Ruau, David;
 To install the development version from github
 ```R
 # install.packages("devtools")
+# We spent a lot of time developping the vignettes. We recommend the read but 
+# building them from source takes some time
 devtools::install_github("scientific-computing-solutions/InformativeCensoring", 
                          build_vignettes = TRUE)
 ```
