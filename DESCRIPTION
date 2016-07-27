@@ -9,7 +9,7 @@ Authors@R: c(
   person("Nikolas", "Burkoff", 
          role=c("aut")),
   person("Jonathan", "Bartlett", 
-         email='jonathan.bartlett@astrazeneca.com',
+         email='jonathan.bartlett1@astrazeneca.com',
          role=c("aut","cre")),
   person("Dan", "Jackson", 
          email='dan.jackson@mrc-bsu.cam.ac.uk',
