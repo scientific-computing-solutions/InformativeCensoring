@@ -19,7 +19,8 @@ Law, Martin; Metcalfe, Paul; Ruau, David;
 To install the development version from github
 ```R
 # install.packages("devtools")
-devtools::install_github("scientific-computing-solutions/InformativeCensoring")
+devtools::install_github("scientific-computing-solutions/InformativeCensoring", 
+                         build_vignettes = TRUE)
 ```
 
 ## Gamma imputation (Jackson 2014)
