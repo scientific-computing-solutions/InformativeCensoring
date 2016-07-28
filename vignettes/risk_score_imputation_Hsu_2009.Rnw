@@ -1,6 +1,6 @@
 \documentclass{article}
 
-\usepackage{fullpage}
+\usepackage[margin=1in]{geometry}
 \usepackage{url}
 \usepackage{color}
 \usepackage{authblk}
