@@ -11,15 +11,15 @@ This R package implement two methods for multiple imputation of survival data.
 * Risk score imputation from Hsu et al. [2]
 
 ## Contributor (alphabetical order)
-Barlett, Jonathan (maintainer); Burkoff, Nikolas; Jackson, Dan; Jones, Edmund; 
+Bartlett, Jonathan (maintainer); Burkoff, Nikolas; Jackson, Dan; Jones, Edmund; 
 Law, Martin; Metcalfe, Paul; Ruau, David;
 
 ## Installation
 
-To install the development version from github
+To install the development version from GitHub:
 ```R
-# install.packages("devtools")
-# We spent a lot of time developping the vignettes. We recommend the read but 
+install.packages("devtools")
+# We spent a lot of time developing the vignettes. We recommend the read but 
 # building them from source takes some time
 devtools::install_github("scientific-computing-solutions/InformativeCensoring", 
                          build_vignettes = TRUE)
