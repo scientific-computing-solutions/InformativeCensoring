@@ -1,4 +1,3 @@
-#' @useDynLib InformativeCensoring
 #' @importFrom survival Surv
 #' @import parallel
 #' @importFrom stats formula model.frame na.fail pf predict pt 
