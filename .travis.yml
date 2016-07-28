@@ -1,6 +1,5 @@
 language: r
 cache: packages
-sudo: false
 
 os:
   - linux
@@ -8,6 +7,9 @@ os:
 
 r_github_packages:
   - jimhester/covr
+
+before_install: 
+  - if [ "${TRAVIS_OS_NAME}" == "osx" ]; then sudo tlmgr install preprint url; fi 
 
 after_success:
   - if [ "${TRAVIS_OS_NAME}" == "linux" ]; then echo 'covr::coveralls(quiet=FALSE)' | R --vanilla; fi
