@@ -24,6 +24,7 @@ Authors@R: c(
          email='paul.metcalfe@astrazeneca.com',
          role=c("aut"))
   )
+Maintainer: Jonathan Bartlett <jonathan.bartlett1@astrazeneca.com>
 Description: Multiple Imputation for Informative Censoring.
     This package implements two methods. Gamma Imputation
     from Jackson et al. (2014) and Risk Score Imputation
