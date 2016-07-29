@@ -35,25 +35,25 @@ parallelRun <- function(parallel,ncpus,cl,lapply.list,FUN,...){
   }
   
   if (have_mc) {
-    parallel::mclapply(lapply.list, FUN, ..., 
+    mclapply(lapply.list, FUN, ..., 
                        mc.preschedule = TRUE, mc.set.seed =  TRUE, mc.cores = ncpus)
   }
   else if (have_snow) {
     list(...) #force evaluation of args
     if (is.null(cl)) {
-      cl <- parallel::makePSOCKcluster(rep("localhost",ncpus))
+      cl <- makePSOCKcluster(rep("localhost",ncpus))
       if (RNGkind()[1L] == "L'Ecuyer-CMRG") 
-        parallel::clusterSetRNGStream(cl)
+        clusterSetRNGStream(cl)
       #This cluster call is needed as snow doesn't seem
       #to pass libraries which a package depends on onto
       #the cluster
-      parallel::clusterCall(cl, function() library("survival"))
-      res <- parallel::parLapply(cl, lapply.list, FUN, ...)
-      parallel::stopCluster(cl)
+      clusterCall(cl, function() library("survival"))
+      res <- parLapply(cl, lapply.list, FUN, ...)
+      on.exit(stopCluster(cl))
       res
     }
     else{
-      parallel::parLapply(cl, lapply.list, FUN)  
+      parLapply(cl, lapply.list, FUN)  
     } 
   }
   
