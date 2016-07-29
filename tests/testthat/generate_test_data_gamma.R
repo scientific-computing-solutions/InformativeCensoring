@@ -33,5 +33,3 @@ gamma.dataset <- data.frame(Id=1:N,
 
 #save(gamma.dataset,file="gamma_test.rda")
 #must move file into testthat directory
-
-
