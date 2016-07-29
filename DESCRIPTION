@@ -25,6 +25,13 @@ Authors@R: c(
          role=c("aut"))
   )
 Maintainer: Jonathan Bartlett <jonathan.bartlett1@astrazeneca.com>
+Author: David Ruau [aut],
+    Nikolas Burkoff [aut],
+    Jonathan Bartlett [aut, cre],
+    Dan Jackson [aut],
+    Edmund Jones [aut],
+    Martin Law [aut],
+    Paul Metcalfe [aut]
 Description: Multiple Imputation for Informative Censoring.
     This package implements two methods. Gamma Imputation
     from Jackson et al. (2014) and Risk Score Imputation
