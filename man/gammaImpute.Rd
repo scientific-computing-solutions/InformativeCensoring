@@ -10,23 +10,23 @@ gammaImpute(formula, data, m, gamma, gamma.factor, bootstrap.strata = rep(1,
 }
 \arguments{
 \item{formula}{The model formula to be used when fitting the models to calculate
-the cumulative hazard. A formula for coxph can include strata terms but not 
+the cumulative hazard. A formula for coxph can include strata terms but not
 cluster or tt and only right-censored \code{Surv} objects can be used.
-Note the function does not allow multiple strata to be written as \code{strata(W1)+strata(W2)}, 
+Note the function does not allow multiple strata to be written as \code{strata(W1)+strata(W2)},
 use \code{strata(W1,W2)} instead}
 
 \item{data}{A time to event data set for which event times are to be imputed}
 
 \item{m}{The number of imputations to be created}
 
-\item{gamma}{Either column name containing the value of gamma or a vector of values giving the subject specific 
-size of the step change in the log hazard at censoring. If a subject has NA in this column then no imputation is performed 
-for this subject (i.e. the subject's censored time remains unchanged after imputation). If a subject has already had an 
+\item{gamma}{Either column name containing the value of gamma or a vector of values giving the subject specific
+size of the step change in the log hazard at censoring. If a subject has NA in this column then no imputation is performed
+for this subject (i.e. the subject's censored time remains unchanged after imputation). If a subject has already had an
 event then the value of gamma is ignored. If \code{gamma.factor} is also used then the subject specific gamma
 are all multipled by \code{gamma.factor}. At least one of \code{gamma} and \code{gamma.factor} must be included.}
 
-\item{gamma.factor}{If used, a single numeric value. If no \code{gamma} then the step change in log 
-hazard for all subjects at censoring is given by \code{gamma.factor}. If \code{gamma} is used  
+\item{gamma.factor}{If used, a single numeric value. If no \code{gamma} then the step change in log
+hazard for all subjects at censoring is given by \code{gamma.factor}. If \code{gamma} is used
 then for each subject, the step change in log hazard is given by \code{gamma.factor} multiplied by the subject specific gamma.
 At least one of \code{gamma} and \code{gamma.factor} must be included.}
 
@@ -35,7 +35,7 @@ for the function \code{boot::boot} for further details. If argument is not used 
 replacement will be used}
 
 \item{DCO.time}{Either column name containing the subject's data cutoff time or a vector
-of DCO.times for the subjects or a single number to be used as the DCO.time for all subjects 
+of DCO.times for the subjects or a single number to be used as the DCO.time for all subjects
 (if imputed events are > this DCO.time then subjects are censored at DCO.time in imputed data sets)}
 
 \item{...}{Additional parameters to be passed into the model fit function}
@@ -52,8 +52,8 @@ cluster on the local machine is created for the duration of the call.}
 A \code{GammaImputedSet.object} containing the imputed data sets
 }
 \description{
-This function performs the Imputation described in 
-Relaxing the independent censoring assumptions in the Cox proportional 
+This function performs the Imputation described in
+Relaxing the independent censoring assumptions in the Cox proportional
 hazards model using multiple imputation. (2014) D. Jackson et al. Statist. Med. (33)
 4681-4694
 }
@@ -61,29 +61,32 @@ hazards model using multiple imputation. (2014) D. Jackson et al. Statist. Med. 
 See the Gamma Imputation vignette for further details
 }
 \examples{
+
+\dontrun{
 data(nwtco)
 nwtco <- nwtco[1:500,]
- 
+
 #creating 2 imputed data sets (m=2) for speed, would normally create more
 ans <- gammaImpute(formula=Surv(edrel,rel)~histol + instit,
                    data = nwtco, m=2, gamma.factor=1, DCO.time=6209)
 
 #subject specific gamma (multiplied by gamma.factor to give the jump)
 #NA for subjects that are not to be imputed
-jumps <- c(rep(NA,10),rep(1,490))                                      
+jumps <- c(rep(NA,10),rep(1,490))
 DCO.values <- rep(6209,500)
-                                                                              
+
 ans.2 <- gammaImpute(formula=Surv(edrel,rel)~histol + instit + strata(stage),
                    data = nwtco, m=2, bootstrap.strata=strata(nwtco$stage),
-                   gamma=jumps, gamma.factor=1, DCO.time=DCO.values)                    
+                   gamma=jumps, gamma.factor=1, DCO.time=DCO.values)
 
 #can also use column names
 nwtco$gamma <- jumps
 nwtco$DCO.time <- DCO.values
 ans.3 <- gammaImpute(formula=Surv(edrel,rel)~histol + instit + strata(stage),
                    data = nwtco, m=2, bootstrap.strata=strata(nwtco$stage),
-                   gamma="gamma", DCO.time="DCO.time")                                        
-                   
+                   gamma="gamma", DCO.time="DCO.time")
+}
+
 }
 \seealso{
 \code{\link{GammaImputedSet.object}} \code{\link{GammaImputedData.object}}

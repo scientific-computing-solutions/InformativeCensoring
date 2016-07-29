@@ -65,10 +65,12 @@ col.control <- col.headings(has.event="event", time="time",
                             DCO.time="DCO.time", 
                             to.impute="to.impute")
 
+\dontrun{
 ans <- ScoreImpute(data=ScoreInd,event.model=~Z1+Z2+Z3+Z4+Z5,
                    col.control=col.control, m=5,
                    bootstrap.strata=ScoreInd$arm,
                    NN.control=NN.options(NN=5,w.censoring = 0.2))
+}
 
 }
 \seealso{

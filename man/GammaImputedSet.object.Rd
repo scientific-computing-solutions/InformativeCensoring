@@ -5,7 +5,7 @@
 \title{\code{GammaImputedSet} object}
 \description{
 An object which contains the set of gamma imputed data frames.
-Use the \code{ExtractSingle} function to extract a single 
+Use the \code{ExtractSingle} function to extract a single
 \code{GammaImputedData} objects. Use the ImputeStat function to fit models
 to the entire set of imputed data frames
 }
@@ -15,7 +15,7 @@ It contains the following:
 \section{Slots}{
 
 \describe{
-\item{\code{data}}{A data frame containing the unimputed time to event data (along with a column internal_gamma_val 
+\item{\code{data}}{A data frame containing the unimputed time to event data (along with a column internal_gamma_val
 which is the value of gamma used for each subject in this data set)}
 
 \item{\code{m}}{The number of imputed data sets}
