@@ -47,7 +47,8 @@ parallelRun <- function(parallel,ncpus,cl,lapply.list,FUN,...){
       #This cluster call is needed as snow doesn't seem
       #to pass libraries which a package depends on onto
       #the cluster
-      clusterCall(cl, function() library("survival"))
+      #clusterCall(cl, function() library("survival"))
+      clusterCall(cl, "library", "survival", character.only=TRUE)
       res <- parLapply(cl, lapply.list, FUN, ...)
       on.exit(stopCluster(cl))
       res
