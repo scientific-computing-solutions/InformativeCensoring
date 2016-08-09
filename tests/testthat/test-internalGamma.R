@@ -166,7 +166,7 @@ test_that("untangle.specials.behaves.as.expected",{
   expect_equal("strata(y)",untangle.specials(m$terms,"strata")$var)
 
   formula <- formula(Surv(time,event)~strata(x)*strata(y))
-  expect_warning(m <- coxph(formula,data)) #not interested in lack of convergence
+  suppressWarnings(m <- coxph(formula,data)) #not interested in lack of convergence
   expect_equal(c("strata(x)","strata(y)"),untangle.specials(m$terms,"strata")$var)
 
   formula <- formula(Surv(time,event)~strata(x*y))
