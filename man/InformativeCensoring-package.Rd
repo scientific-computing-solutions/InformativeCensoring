@@ -20,6 +20,6 @@ hazards model using multiple imputation. Jackson et al., Statistics in Medicine
 (2014) 33:4681-4694 for Jackson's method
 }
 \author{
-\email{David.Ruaa@astrazeneca.com}
+\email{David.Ruau@astrazeneca.com}
 }
 
