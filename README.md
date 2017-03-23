@@ -5,6 +5,7 @@
 [![Coverage Status](https://coveralls.io/repos/scientific-computing-solutions/InformativeCensoring/badge.svg?branch=master&service=github)](https://coveralls.io/github/scientific-computing-solutions/InformativeCensoring?branch=master)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/scientific-computing-solutions/InformativeCensoring?branch=master&svg=true)](https://ci.appveyor.com/project/scientific-computing-solutions/InformativeCensoring)
 [![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/InformativeCensoring)](https://cran.r-project.org/package=InformativeCensoring)
+[![CRAN RStudio mirror downloads](http://cranlogs.r-pkg.org/badges/grand-total/InformativeCensoring)](https://cran.r-project.org/package=InformativeCensoring)
 
 Multiple Imputation for Informative Censoring
 
